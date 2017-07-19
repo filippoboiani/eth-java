@@ -5,19 +5,30 @@ pragma solidity ^0.4.0;
 // Inside the resource folder
 // web3j solidity generate FirstContract.bin FirstContract.abi -o ../ -p hello
 
-// Owning and modifying the contract
-contract Owned {
 
+// PROBLEM: Struct SR has a lot of values and solidity is not able to return all of them as strings
+// SOLUTION 1: convert string to bytes32 - but I don't now how to do it
+// SOLUTION 2: save the SR as stringified JSON <<<<< TAKE THIS INTO CONSIDERATION
+
+// SocialRecord contract must be mortal and owned
+contract SocialRecord {
+    
     struct User {
         string globalId;
         bool exists;
     }
+    
+    // struct containing the Social Record
+    struct SR {
+        string socialRecord; 
+        bool exists; 
+    }
 
     address owner;
     mapping (address => User) users;
-
-    function Owned() { owner = msg.sender; }
-
+    // State variable
+    mapping (string => SR) srs; // maps GIDs to SocialRecords 
+    
     // Only the owner can call the function
     modifier onlyOwner {
         require(msg.sender == owner);
@@ -36,67 +47,85 @@ contract Owned {
             _;
         }
     }
-}
-
-// Killing the contract
-contract Mortal is Owned {
-
-    // Kill the contract (only the owner can)
-    function kill() onlyOwner {
-        selfdestruct(owner);
-    }
-}
-
-// SocialRecord contract must be mortal and owned
-contract SocialRecord is Mortal {
-
-    struct SR {
-        string socialRecordHash;
-        bool exists;
-    }
-
-    // State variable
-    string public message;
-    mapping (string => SR) private globalIds;
-
+    
     // Constructor
     function SocialRecord(){
-        message = "Hello new contract";
+        owner = msg.sender;
+        // set the contract creator
         users[msg.sender] = User("Creator", true);
     }
 
     // Events
-    event SocialRecordAdded(address user, string socialRecordHash);
-    event SocialRecordUpdated(address updater, string socialRecordHash);
+    event SocialRecordAdded(address user, string globalId);
+    event SocialRecordUpdated(address updater, string globalId);
+    event SocialReocordDeleted(address deleter, string globalId);
 
-    // Functions
-    // function addUser(address userAddress, string name) onlyOwner returns (string){
-    //     users[userAddress] = name;
-    // }
+    // add a Social Record: only a non-user can create it and the globalId has to be new. 
+    function addSocialRecord(string _globalId, string _socialRecordString) returns (bool, string) {
+        
+        if (srs[_globalId].exists) {
+            return (false, ""); 
+        }
 
-    function addSocialRecord(string globalId, string socialRecordHash) onlyNotUser returns (string){
-        globalIds[globalId] = SR(socialRecordHash, true);
-        users[msg.sender] = User(globalId, true);
-        SocialRecordAdded(msg.sender, socialRecordHash);
+        srs[_globalId] = SR(_socialRecordString, true);
+        users[msg.sender] = User(_globalId, true);
+        SocialRecordAdded(msg.sender, _globalId);
+        
+        return(true, _socialRecordString);
     }
 
-    function getSocialRecordHash(string globalId) onlyUser constant returns (string socialRecordHash){
-        socialRecordHash = globalIds[globalId].socialRecordHash;
-        return socialRecordHash;
+    // get a Social Record
+    function getSocialRecord(string _globalId) constant returns (string) {
+        
+        if (!srs[_globalId].exists) {
+           throw; 
+        }
+
+        return srs[_globalId].socialRecord;
     }
 
-    function updateSocialRecordHash(string globalId, string socialRecordHash) onlyUser returns (string){
-        globalIds[globalId] = SR(socialRecordHash, true);
+    function verify( string memory _hash, uint8 _v, string memory _r, string memory _s) constant returns(address retAddr) {
+        bytes32 hash;
+        bytes32 r;
+        bytes32 s;
+        assembly {
+            hash := mload(add(_hash, 32))
+            r := mload(add(_r, 32))
+            s := mload(add(_s, 32))
+        }
+
+        retAddr = ecrecover(hash, _v, r, s);
+    }
+
+    // update a Social Record 
+    // TODO: import library to compare strings 
+    function updateSocialRecord(string _globalId, string _socialRecordString) returns (bool, string){
+        
+        // the user is the owner of the social record 
+        // if (sha3(users[msg.sender].globalId) != sha3(_globalId)) {
+        //     return false; 
+        // }
+
+        // the Social Record must exist
+        if (!srs[_globalId].exists)  {
+            return (false, ""); 
+        }
+
+        srs[_globalId] = SR(_socialRecordString, true);
         // Trigger the event
-        SocialRecordUpdated(msg.sender, socialRecordHash);
+        SocialRecordUpdated(msg.sender, _globalId);
+        return (true, _socialRecordString); 
     }
 
-    function setMessage(string theMessage) onlyOwner returns (string) {
-        message = theMessage;
+    // delete a Social Record
+    function deleteSocialRecord(string _globalId) returns (bool) {
+        delete srs[_globalId];
+        delete users[msg.sender];
+        return true; 
     }
-
-    function getUser(address _user) onlyUser constant returns (string _theUser){
-        _theUser = users[_user].globalId;
-        return _theUser;
+    
+    // Kill the contract (only the owner can)
+    function kill() onlyOwner {
+        selfdestruct(owner);
     }
 }

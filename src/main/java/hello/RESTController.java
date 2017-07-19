@@ -2,6 +2,11 @@ package hello;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,18 +45,19 @@ public class RESTController {
         return secondService.getClientVersion()+"\n";
     }
 
-    @RequestMapping("/deploy/contract")
+    @RequestMapping("/initialise")
     public String deployContract() {
         // This is the first time i use firstService, the instance is here automatically created.
-        return firstService.deployContranct()+"\n";
+        return secondService.deployContranct()+"\n";
     }
 
+    // Send a raw transaction hash
     @RequestMapping(value = "/rawtransaction", method = RequestMethod.POST)
     public ResponseEntity<String> postDdata(@RequestBody String hash) throws JSONException {
 
         JSONObject response = new JSONObject();
         System.out.println("api called (raw transaction: " + hash);
-        String resp = secondService.sendRawTransaction(hash)+"\n";
+        String resp = secondService.sendRawTransaction(hash);
 
         response.put("status", 200);
         response.put("message", resp);
@@ -59,15 +65,46 @@ public class RESTController {
         return new ResponseEntity<String>(response.toString(), HttpStatus.OK);
     }
 
+    // verify address
+    @RequestMapping(value = "/verify/signature", method = RequestMethod.POST)
+    public ResponseEntity<String> verifySignature(@RequestBody String jsonString) throws JSONException {
+
+        ObjectMapper mapper = new ObjectMapper();
+        Verify obj = null;
+        try {
+            obj = mapper.readValue(jsonString, Verify.class);
+        } catch (JsonGenerationException e) {
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println(obj.msg);
+
+
+        JSONObject response = new JSONObject();
+        System.out.println("Api called: verify signature");
+        String resp = secondService.verify(obj);
+
+        response.put("status", 200);
+        response.put("message", resp);
+
+        return new ResponseEntity<String>(response.toString(), HttpStatus.OK);
+    }
+
+    // add a Social Record
     @RequestMapping("/add/socialrecord/{globalID}")
     public String addSocialRecord(@PathVariable("globalID") String globalID) {
-        firstService.addSocialRecord(globalID);
+        secondService.addSocialRecord(globalID);
         return "Social record with globalID: "+globalID+" added\n";
     }
 
+    // get a Social Record
     @RequestMapping("/socialrecord/{globalID}")
     public String getSocialRecord(@PathVariable("globalID") String globalID) {
-        String res = firstService.getSocialRecord(globalID);
+        String res = secondService.getSocialRecord(globalID);
         System.out.println(res);
         if(res.length()<3)
             return "The transaction still needs some time to be mined...\n";

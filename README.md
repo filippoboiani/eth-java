@@ -10,7 +10,7 @@
 - Use the following command to compile the contract
 
     ```
-    solcjs FirstContract.sol --bin --abi --optimize -o ./ 
+    solcjs ContractName.sol --bin --abi --optimize -o ./ 
   ```
 - If you don't have solcjs you need to 
     ```
@@ -23,13 +23,13 @@
 - Write this in you terminal
 
   ```
-  web3j solidity generate FirstContract.bin FirstContract.abi -o ../java -p hello
+  web3j solidity generate ConstractName.bin ContractName.abi -o ../java -p hello
   ```
-- The command could not work if solcjs compiles the file in this way: 
+- The command might not work if solcjs compiles the file in this way: 
 
      ```javascript
-     FirstContranct.sol:FirstContract.bin
-    FirstContranct.sol:FirstContract.abi
+     ConstractName.sol:ConstractName.bin
+    ConstractName.sol:ConstractName.abi
     ```
 - Then you need only to rename the files deleting the first part
 - Now you have both the Solidity contract compiled and the Web3j wrapper class
